@@ -1,0 +1,79 @@
+name: CI/CD Pipeline #This sets the name of CI/CD pipeline.
+
+on:
+  push: #This defines when the pipeline should run. here - any push to the main branch
+    branches:
+      - main
+
+jobs:
+  build: #This starts the definition of a job named build that will run on  GitHub-hosted Ubuntu environment
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code #This step checks out (downloads) your repository code to the runner's workspace.
+      uses: actions/checkout@v2
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2 #This step sets up the .NET environment for your project
+      with:
+        dotnet-version: '7.0.x'
+    
+         
+    #This step sets up Docker for use in your workflow and specifies the path to your Dockerfile  
+    - name: Set up Docker for Dockerfile1
+      uses: docker/setup-buildx-action@v1
+      with:
+        dockerfile: Dockerfile1
+
+    - name: Set up Docker for Dockerfile2
+      uses: docker/setup-buildx-action@v1
+      with:
+        dockerfile: Dockerfile2
+
+    - name: Set up Docker for Dockerfile3
+      uses: docker/setup-buildx-action@v1
+      with:
+        dockerfile: Dockerfile3
+
+    #This step builds a Docker image with the tag bookstore-app.
+
+    - name: Build Docker image - Web
+      run: docker build -t bookstore-web -f Dockerfile1 .
+
+    - name: Build Docker image - DbMigrator
+      run: docker build -t bookstore-db-migrator -f Dockerfile2 .
+
+    - name: Build Docker image - HttpApi.Host
+      run: docker build -t bookstore-http-api-host -f Dockerfile3 .
+
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    
+    # This step logs in to Amazon Elastic Container Registry (ECR) to authenticate Docker for pushing images.  
+    - name: Log in to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    
+    #This step tags the Docker image with the appropriate ECR repository URL.
+    - name: Tag Docker images
+      run: |
+        docker tag bookstore-web:latest 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:web-latest
+        docker tag bookstore-db-migrator:latest 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:db-migrator-latest
+        docker tag bookstore-http-api-host:latest 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:http-api-host-latest
+       
+
+      
+    #This step pushes the tagged Docker image to the specified ECR repository.  
+    - name: Push Docker images
+      run: |
+        docker push 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:web-latest
+        docker push 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:db-migrator-latest
+        docker push 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:http-api-host-latest
+    
