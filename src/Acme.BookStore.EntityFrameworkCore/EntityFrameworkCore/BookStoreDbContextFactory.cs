@@ -1,8 +1,12 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Amazon;
+using Amazon.SecretsManager;
+using Amazon.SecretsManager.Model;
 
 namespace Acme.BookStore.EntityFrameworkCore;
 
@@ -18,9 +22,14 @@ public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDb
         BookStoreEfCoreEntityExtensionMappings.Configure();
 
         var configuration = BuildConfiguration();
+#if DEBUG
+        var connectionString = configuration.GetConnectionString("Default");        
+#else
+        var connectionString = GetSecretAsync().Result;
+#endif
 
         var builder = new DbContextOptionsBuilder<BookStoreDbContext>()
-            .UseNpgsql(configuration.GetConnectionString("Default"));
+            .UseNpgsql();
 
         return new BookStoreDbContext(builder.Options);
     }
@@ -33,4 +42,21 @@ public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDb
 
         return builder.Build();
     }
+
+    private async Task<string> GetSecretAsync()
+    {
+        string secretName = "Database-Secret";
+        string region = "us-east-1";
+        IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
+        GetSecretValueRequest request = new GetSecretValueRequest
+        {
+            SecretId = secretName,
+            VersionStage = "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified.
+        };
+        GetSecretValueResponse response = await client.GetSecretValueAsync(request);
+        return response.SecretString;
+    }
 }
+
+
+
