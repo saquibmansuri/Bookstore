@@ -64,16 +64,16 @@ jobs:
     #This step tags the Docker image with the appropriate ECR repository URL.
     - name: Tag Docker images
       run: |
-        docker tag bookstore-web:latest 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:web-latest
-        docker tag bookstore-db-migrator:latest 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:db-migrator-latest
-        docker tag bookstore-http-api-host:latest 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:http-api-host-latest
+        docker tag bookstore-web:latest ${{ secrets.AWS_ECR_REPOSITORY }}:web-latest
+        docker tag bookstore-db-migrator:latest ${{ secrets.AWS_ECR_REPOSITORY }}:db-migrator-latest
+        docker tag bookstore-http-api-host:latest ${{ secrets.AWS_ECR_REPOSITORY }}:http-api-host-latest
        
 
       
     #This step pushes the tagged Docker image to the specified ECR repository.  
     - name: Push Docker images
       run: |
-        docker push 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:web-latest
-        docker push 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:db-migrator-latest
-        docker push 505660359349.dkr.ecr.us-east-1.amazonaws.com/bookstore-app:http-api-host-latest
+        docker push ${{ secrets.AWS_ECR_REPOSITORY }}:web-latest
+        docker push ${{ secrets.AWS_ECR_REPOSITORY }}:db-migrator-latest
+        docker push ${{ secrets.AWS_ECR_REPOSITORY }}:http-api-host-latest
     
