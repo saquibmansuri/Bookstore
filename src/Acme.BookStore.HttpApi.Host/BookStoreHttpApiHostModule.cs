@@ -14,7 +14,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Acme.BookStore.EntityFrameworkCore;
 using Acme.BookStore.MultiTenancy;
-using StackExchange.Redis;
 using Microsoft.OpenApi.Models;
 using Volo.Abp;
 using Volo.Abp.AspNetCore.Mvc;
@@ -128,12 +127,7 @@ public class BookStoreHttpApiHostModule : AbpModule
         IConfiguration configuration,
         IWebHostEnvironment hostingEnvironment)
     {
-        var dataProtectionBuilder = context.Services.AddDataProtection().SetApplicationName("BookStore");
-        if (!hostingEnvironment.IsDevelopment())
-        {
-            var redis = ConnectionMultiplexer.Connect(configuration["Redis:Configuration"]);
-            dataProtectionBuilder.PersistKeysToStackExchangeRedis(redis, "BookStore-Protection-Keys");
-        }
+        var dataProtectionBuilder = context.Services.AddDataProtection().SetApplicationName("BookStore");        
     }
 
     private void ConfigureDistributedLocking(
