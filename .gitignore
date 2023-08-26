@@ -264,3 +264,4 @@ src/Acme.BookStore.Blazor.Server.Tiered/Logs/*
 # Use abp install-libs to restore.
 **/wwwroot/libs/*
 .yarn
+!certificate.pfx

@@ -1,0 +1,10 @@
+.github
+.vs
+.vscode
+test
+.gitignore
+.gitattributes
+README.md
+.prettierrc
+Acme.BookStore.sln.DotSettings
+compose.yml

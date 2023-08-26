@@ -19,18 +19,22 @@ using Volo.Abp.AspNetCore.Mvc.UI.MultiTenancy;
 using Volo.Abp.AspNetCore.Serilog;
 using Volo.Abp.Autofac;
 using Volo.Abp.Caching;
-using Volo.Abp.Caching.StackExchangeRedis;
 using Volo.Abp.DistributedLocking;
 using Volo.Abp.Modularity;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.VirtualFileSystem;
+using Medallion.Threading;
+using Medallion.Threading.Postgres;
+using Amazon.SecretsManager.Model;
+using Amazon.SecretsManager;
+using System.Threading.Tasks;
+using Amazon;
 
 namespace Acme.BookStore;
 
 [DependsOn(
     typeof(BookStoreHttpApiModule),
-    typeof(AbpAutofacModule),
-    typeof(AbpCachingStackExchangeRedisModule),
+    typeof(AbpAutofacModule),    
     typeof(AbpDistributedLockingModule),
     typeof(AbpAspNetCoreMvcUiMultiTenancyModule),
     typeof(BookStoreApplicationModule),
@@ -47,14 +51,15 @@ public class BookStoreHttpApiHostModule : AbpModule
 
         ConfigureConventionalControllers();
         ConfigureAuthentication(context, configuration);
-        ConfigureCache(configuration);
+        ConfigureCache();
         ConfigureVirtualFileSystem(context);
-        ConfigureDataProtection(context, configuration, hostingEnvironment);        
+        ConfigureDataProtection(context, hostingEnvironment);
+        ConfigureDistributedLocking(context, configuration);
         ConfigureCors(context, configuration);
         ConfigureSwaggerServices(context, configuration);
     }
 
-    private void ConfigureCache(IConfiguration configuration)
+    private void ConfigureCache()
     {
         Configure<AbpDistributedCacheOptions>(options => { options.KeyPrefix = "BookStore:"; });
     }
@@ -119,12 +124,45 @@ public class BookStoreHttpApiHostModule : AbpModule
     }
 
     private void ConfigureDataProtection(
-        ServiceConfigurationContext context,
-        IConfiguration configuration,
+        ServiceConfigurationContext context,        
         IWebHostEnvironment hostingEnvironment)
     {
-        var dataProtectionBuilder = context.Services.AddDataProtection().SetApplicationName("BookStore");        
-    }    
+        var dataProtectionBuilder = context.Services.AddDataProtection().SetApplicationName("BookStore");
+        if (!hostingEnvironment.IsDevelopment())
+        {            
+            dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo("/root/.aspnet/Data.xml"));            
+        }
+    }
+
+    private void ConfigureDistributedLocking(
+        ServiceConfigurationContext context,
+        IConfiguration configuration)
+    {
+        context.Services.AddSingleton<IDistributedLockProvider>(sp =>
+        {
+            string connectionString = GetSecretAsync(configuration).Result;
+            return new PostgresDistributedSynchronizationProvider(connectionString);
+        });
+    }
+
+    private async Task<string> GetSecretAsync(IConfiguration configuration)
+    {
+        var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
+        if (!string.IsNullOrEmpty(environment) && environment.Equals("Local", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return configuration.GetConnectionString("Default");
+        }
+        string secretName = "Database-Secret";
+        string region = "us-east-1";
+        IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
+        GetSecretValueRequest request = new GetSecretValueRequest
+        {
+            SecretId = secretName,
+            VersionStage = "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified.
+        };
+        GetSecretValueResponse response = await client.GetSecretValueAsync(request);
+        return response.SecretString;
+    }
 
     private void ConfigureCors(ServiceConfigurationContext context, IConfiguration configuration)
     {

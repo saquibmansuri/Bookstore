@@ -25,7 +25,7 @@ public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDb
 #if DEBUG
         var connectionString = configuration.GetConnectionString("Default");        
 #else
-        var connectionString = GetSecretAsync().Result;
+        var connectionString = GetSecretAsync(configuration).Result;
 #endif
 
         var builder = new DbContextOptionsBuilder<BookStoreDbContext>()
@@ -43,8 +43,13 @@ public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDb
         return builder.Build();
     }
 
-    private async Task<string> GetSecretAsync()
+    private async Task<string> GetSecretAsync(IConfigurationRoot configuration)
     {
+        var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
+        if (environment == null)
+        {
+            return configuration.GetConnectionString("Default");
+        }
         string secretName = "Database-Secret";
         string region = "us-east-1";
         IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
