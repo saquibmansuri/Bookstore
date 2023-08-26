@@ -35,6 +35,11 @@ jobs:
       with:
         dockerfile: Dockerfile3
 
+    - name: Set up Docker for Dockerfile4
+      uses: docker/setup-buildx-action@v1
+      with:
+        dockerfile: Dockerfile4
+
     #This step builds a Docker image with the tag bookstore-app.
 
     - name: Build Docker image - Web
@@ -45,6 +50,9 @@ jobs:
 
     - name: Build Docker image - HttpApi.Host
       run: docker build -t bookstore-http-api-host -f Dockerfile3 .
+
+    - name: Build Docker image - AuthServer
+      run: docker build -t bookstore-authserver -f Dockerfile4 .
 
 
     - name: Configure AWS credentials
@@ -67,6 +75,7 @@ jobs:
         docker tag bookstore-web:latest ${{ secrets.AWS_ECR_REPOSITORY }}:web-latest
         docker tag bookstore-db-migrator:latest ${{ secrets.AWS_ECR_REPOSITORY }}:db-migrator-latest
         docker tag bookstore-http-api-host:latest ${{ secrets.AWS_ECR_REPOSITORY }}:http-api-host-latest
+        docker tag bookstore-authserver:latest ${{ secrets.AWS_ECR_REPOSITORY }}:authserver-latest
        
 
       
@@ -76,4 +85,5 @@ jobs:
         docker push ${{ secrets.AWS_ECR_REPOSITORY }}:web-latest
         docker push ${{ secrets.AWS_ECR_REPOSITORY }}:db-migrator-latest
         docker push ${{ secrets.AWS_ECR_REPOSITORY }}:http-api-host-latest
+        docker push ${{ secrets.AWS_ECR_REPOSITORY }}:authserver-latest
     
