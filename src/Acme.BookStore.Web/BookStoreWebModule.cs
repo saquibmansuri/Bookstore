@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using Medallion.Threading;
-using Medallion.Threading.Redis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -12,14 +11,11 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Acme.BookStore.Localization;
 using Acme.BookStore.MultiTenancy;
 using Acme.BookStore.Web.Menus;
-using StackExchange.Redis;
 using Microsoft.OpenApi.Models;
 using Volo.Abp;
 using Volo.Abp.AspNetCore.Authentication.OpenIdConnect;
 using Volo.Abp.AspNetCore.Mvc.Client;
 using Volo.Abp.AspNetCore.Mvc.Localization;
-using Volo.Abp.AspNetCore.Mvc.UI;
-using Volo.Abp.AspNetCore.Mvc.UI.Bootstrap;
 using Volo.Abp.AspNetCore.Mvc.UI.Bundling;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Bundling;
@@ -29,21 +25,24 @@ using Volo.Abp.AspNetCore.Serilog;
 using Volo.Abp.Autofac;
 using Volo.Abp.AutoMapper;
 using Volo.Abp.Caching;
-using Volo.Abp.Caching.StackExchangeRedis;
 using Volo.Abp.DistributedLocking;
 using Volo.Abp.Http.Client.IdentityModel.Web;
 using Volo.Abp.Http.Client.Web;
 using Volo.Abp.Identity.Web;
 using Volo.Abp.Modularity;
 using Volo.Abp.MultiTenancy;
-using Volo.Abp.PermissionManagement.Web;
 using Volo.Abp.SettingManagement.Web;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.TenantManagement.Web;
 using Volo.Abp.UI.Navigation.Urls;
-using Volo.Abp.UI;
 using Volo.Abp.UI.Navigation;
 using Volo.Abp.VirtualFileSystem;
+using Medallion.Threading.Postgres;
+using System.Threading.Tasks;
+using Amazon.SecretsManager;
+using Amazon;
+using Amazon.SecretsManager.Model;
+using System.Net;
 
 namespace Acme.BookStore.Web;
 
@@ -54,8 +53,7 @@ namespace Acme.BookStore.Web;
     typeof(AbpAspNetCoreMvcClientModule),
     typeof(AbpHttpClientWebModule),
     typeof(AbpAspNetCoreMvcUiLeptonXLiteThemeModule),
-    typeof(AbpAutofacModule),
-    typeof(AbpCachingStackExchangeRedisModule),
+    typeof(AbpAutofacModule),    
     typeof(AbpDistributedLockingModule),
     typeof(AbpSettingManagementWebModule),
     typeof(AbpHttpClientIdentityModelWebModule),
@@ -83,10 +81,10 @@ public class BookStoreWebModule : AbpModule
     {
         var hostingEnvironment = context.Services.GetHostingEnvironment();
         var configuration = context.Services.GetConfiguration();
-
+        ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;
         ConfigureBundles();
         ConfigureCache();
-        ConfigureDataProtection(context, configuration, hostingEnvironment);
+        ConfigureDataProtection(context, hostingEnvironment);
         ConfigureDistributedLocking(context, configuration);
         ConfigureUrls(configuration);
         ConfigureAuthentication(context, configuration);
@@ -95,6 +93,7 @@ public class BookStoreWebModule : AbpModule
         ConfigureNavigationServices(configuration);
         ConfigureMultiTenancy();
         ConfigureSwaggerServices(context.Services);
+
     }
 
     private void ConfigureBundles()
@@ -214,15 +213,13 @@ public class BookStoreWebModule : AbpModule
     }
 
     private void ConfigureDataProtection(
-        ServiceConfigurationContext context,
-        IConfiguration configuration,
+        ServiceConfigurationContext context,        
         IWebHostEnvironment hostingEnvironment)
     {
         var dataProtectionBuilder = context.Services.AddDataProtection().SetApplicationName("BookStore");
         if (!hostingEnvironment.IsDevelopment())
-        {
-            var redis = ConnectionMultiplexer.Connect(configuration["Redis:Configuration"]);
-            dataProtectionBuilder.PersistKeysToStackExchangeRedis(redis, "BookStore-Protection-Keys");
+        {            
+            dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo("/root/.aspnet/"));
         }
     }
 
@@ -232,10 +229,27 @@ public class BookStoreWebModule : AbpModule
     {
         context.Services.AddSingleton<IDistributedLockProvider>(sp =>
         {
-            var connection = ConnectionMultiplexer
-                .Connect(configuration["Redis:Configuration"]);
-            return new RedisDistributedSynchronizationProvider(connection.GetDatabase());
+            return new PostgresDistributedSynchronizationProvider(GetSecretAsync(configuration).Result);
         });
+    }
+
+    private async Task<string> GetSecretAsync(IConfiguration configuration)
+    {
+        var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
+        if (!string.IsNullOrEmpty(environment) && environment.Equals("Local", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return configuration.GetConnectionString("Default") ?? "";
+        }
+        string secretName = "Database-Secret";
+        string region = "us-east-1";
+        IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
+        GetSecretValueRequest request = new GetSecretValueRequest
+        {
+            SecretId = secretName,
+            VersionStage = "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified.
+        };
+        GetSecretValueResponse response = await client.GetSecretValueAsync(request);
+        return response.SecretString;
     }
 
     public override void OnApplicationInitialization(ApplicationInitializationContext context)

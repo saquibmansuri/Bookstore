@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using Localization.Resources.AbpUi;
 using Medallion.Threading;
-using Medallion.Threading.Redis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.DataProtection;
@@ -12,12 +11,9 @@ using Microsoft.Extensions.Hosting;
 using Acme.BookStore.EntityFrameworkCore;
 using Acme.BookStore.Localization;
 using Acme.BookStore.MultiTenancy;
-using StackExchange.Redis;
 using Volo.Abp;
 using Volo.Abp.Account;
 using Volo.Abp.Account.Web;
-using Volo.Abp.AspNetCore.Mvc.UI;
-using Volo.Abp.AspNetCore.Mvc.UI.Bootstrap;
 using Volo.Abp.AspNetCore.Mvc.UI.Bundling;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Bundling;
@@ -27,19 +23,24 @@ using Volo.Abp.Auditing;
 using Volo.Abp.Autofac;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.Caching;
-using Volo.Abp.Caching.StackExchangeRedis;
 using Volo.Abp.DistributedLocking;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
 using Volo.Abp.UI.Navigation.Urls;
-using Volo.Abp.UI;
 using Volo.Abp.VirtualFileSystem;
+using Medallion.Threading.Postgres;
+using Amazon.SecretsManager.Model;
+using Amazon.SecretsManager;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Amazon;
+using System.Net.Http;
+using System.Net;
 
 namespace Acme.BookStore;
 
 [DependsOn(
-    typeof(AbpAutofacModule),
-    typeof(AbpCachingStackExchangeRedisModule),
+    typeof(AbpAutofacModule),    
     typeof(AbpDistributedLockingModule),
     typeof(AbpAccountWebOpenIddictModule),
     typeof(AbpAccountApplicationModule),
@@ -50,7 +51,7 @@ namespace Acme.BookStore;
     )]
 public class BookStoreAuthServerModule : AbpModule
 {
-    public override void PreConfigureServices(ServiceConfigurationContext context)
+    public override async Task PreConfigureServicesAsync(ServiceConfigurationContext context)
     {
         PreConfigure<OpenIddictBuilder>(builder =>
         {
@@ -61,9 +62,10 @@ public class BookStoreAuthServerModule : AbpModule
                 options.UseAspNetCore();
             });
         });
+        await base.PreConfigureServicesAsync(context);
     }
 
-    public override void ConfigureServices(ServiceConfigurationContext context)
+    public override async Task ConfigureServicesAsync(ServiceConfigurationContext context)
     {
         var hostingEnvironment = context.Services.GetHostingEnvironment();
         var configuration = context.Services.GetConfiguration();
@@ -90,8 +92,8 @@ public class BookStoreAuthServerModule : AbpModule
 
         Configure<AbpAuditingOptions>(options =>
         {
-                //options.IsEnabledForGetRequests = true;
-                options.ApplicationName = "AuthServer";
+            //options.IsEnabledForGetRequests = true;
+            options.ApplicationName = "AuthServer";
         });
 
         if (hostingEnvironment.IsDevelopment())
@@ -125,15 +127,12 @@ public class BookStoreAuthServerModule : AbpModule
         var dataProtectionBuilder = context.Services.AddDataProtection().SetApplicationName("BookStore");
         if (!hostingEnvironment.IsDevelopment())
         {
-            var redis = ConnectionMultiplexer.Connect(configuration["Redis:Configuration"]);
-            dataProtectionBuilder.PersistKeysToStackExchangeRedis(redis, "BookStore-Protection-Keys");
+            dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(hostingEnvironment.ContentRootPath, "..", "Acme.BookStore.AuthServer-Keys")));
         }
-
+        string connectionString = await GetSecretAsync(configuration);
         context.Services.AddSingleton<IDistributedLockProvider>(sp =>
         {
-            var connection = ConnectionMultiplexer
-                .Connect(configuration["Redis:Configuration"]);
-            return new RedisDistributedSynchronizationProvider(connection.GetDatabase());
+            return new PostgresDistributedSynchronizationProvider(connectionString);
         });
 
         context.Services.AddCors(options =>
@@ -154,9 +153,17 @@ public class BookStoreAuthServerModule : AbpModule
                     .AllowCredentials();
             });
         });
+        ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;
+        //context.Services.AddHttpClient("Name").ConfigurePrimaryHttpMessageHandler( () =>
+        //{
+        //    var handler = new HttpClientHandler();
+        //    handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+        //    return handler;
+        //});
+        await base.ConfigureServicesAsync(context);
     }
 
-    public override void OnApplicationInitialization(ApplicationInitializationContext context)
+    public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
     {
         var app = context.GetApplicationBuilder();
         var env = context.GetEnvironment();
@@ -190,5 +197,25 @@ public class BookStoreAuthServerModule : AbpModule
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
+        await base.OnApplicationInitializationAsync(context);
+    }    
+
+    private async Task<string> GetSecretAsync(IConfiguration configuration)
+    {
+        var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
+        if (!string.IsNullOrEmpty(environment) && environment.Equals("Local", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return configuration.GetConnectionString("Default") ?? "";
+        }
+        string secretName = "Database-Secret";
+        string region = "us-east-1";
+        IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
+        GetSecretValueRequest request = new GetSecretValueRequest
+        {
+            SecretId = secretName,
+            VersionStage = "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified.
+        };
+        GetSecretValueResponse response = await client.GetSecretValueAsync(request);
+        return response.SecretString;
     }
 }

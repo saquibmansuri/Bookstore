@@ -29,6 +29,7 @@ using Amazon.SecretsManager.Model;
 using Amazon.SecretsManager;
 using System.Threading.Tasks;
 using Amazon;
+using System.Net;
 
 namespace Acme.BookStore;
 
@@ -48,7 +49,7 @@ public class BookStoreHttpApiHostModule : AbpModule
     {
         var configuration = context.Services.GetConfiguration();
         var hostingEnvironment = context.Services.GetHostingEnvironment();
-
+        ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;
         ConfigureConventionalControllers();
         ConfigureAuthentication(context, configuration);
         ConfigureCache();
