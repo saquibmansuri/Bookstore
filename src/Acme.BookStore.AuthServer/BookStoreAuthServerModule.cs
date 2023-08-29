@@ -36,6 +36,7 @@ using Microsoft.Extensions.Configuration;
 using Amazon;
 using System.Net.Http;
 using System.Net;
+using Acme.BookStore.SharedServices;
 
 namespace Acme.BookStore;
 
@@ -129,7 +130,7 @@ public class BookStoreAuthServerModule : AbpModule
         {
             dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(hostingEnvironment.ContentRootPath, "..", "Acme.BookStore.AuthServer-Keys")));
         }
-        string connectionString = await GetSecretAsync(configuration);
+        string connectionString = await new AwsSecretsManagerService().GetSecretAsync(configuration);
         context.Services.AddSingleton<IDistributedLockProvider>(sp =>
         {
             return new PostgresDistributedSynchronizationProvider(connectionString);
@@ -200,22 +201,5 @@ public class BookStoreAuthServerModule : AbpModule
         await base.OnApplicationInitializationAsync(context);
     }    
 
-    private async Task<string> GetSecretAsync(IConfiguration configuration)
-    {
-        var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
-        if (!string.IsNullOrEmpty(environment) && environment.Equals("Local", StringComparison.InvariantCultureIgnoreCase))
-        {
-            return configuration.GetConnectionString("Default") ?? "";
-        }
-        string secretName = "Database-Secret";
-        string region = "us-east-1";
-        IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
-        GetSecretValueRequest request = new GetSecretValueRequest
-        {
-            SecretId = secretName,
-            VersionStage = "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified.
-        };
-        GetSecretValueResponse response = await client.GetSecretValueAsync(request);
-        return response.SecretString;
-    }
+    
 }

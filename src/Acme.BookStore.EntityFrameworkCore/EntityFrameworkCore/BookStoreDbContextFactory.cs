@@ -7,6 +7,9 @@ using Microsoft.Extensions.Configuration;
 using Amazon;
 using Amazon.SecretsManager;
 using Amazon.SecretsManager.Model;
+#if !DEBUG
+using Acme.BookStore.SharedServices;
+#endif
 
 namespace Acme.BookStore.EntityFrameworkCore;
 
@@ -25,7 +28,7 @@ public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDb
 #if DEBUG
         var connectionString = configuration.GetConnectionString("Default");        
 #else
-        var connectionString = GetSecretAsync(configuration).Result;
+        var connectionString = new AwsSecretsManagerService().GetSecretAsync(configuration).Result;
 #endif
 
         var builder = new DbContextOptionsBuilder<BookStoreDbContext>()
@@ -41,26 +44,7 @@ public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDb
             .AddJsonFile("appsettings.json", optional: false);
 
         return builder.Build();
-    }
-
-    private async Task<string> GetSecretAsync(IConfigurationRoot configuration)
-    {
-        var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
-        if (environment == null)
-        {
-            return configuration.GetConnectionString("Default");
-        }
-        string secretName = "Database-Secret";
-        string region = "us-east-1";
-        IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
-        GetSecretValueRequest request = new GetSecretValueRequest
-        {
-            SecretId = secretName,
-            VersionStage = "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified.
-        };
-        GetSecretValueResponse response = await client.GetSecretValueAsync(request);
-        return response.SecretString;
-    }
+    }    
 }
 
 

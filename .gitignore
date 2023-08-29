@@ -265,3 +265,4 @@ src/Acme.BookStore.Blazor.Server.Tiered/Logs/*
 **/wwwroot/libs/*
 .yarn
 !certificate.pfx
+node_modules

@@ -30,6 +30,9 @@ using Amazon.SecretsManager;
 using System.Threading.Tasks;
 using Amazon;
 using System.Net;
+using System.Runtime.Serialization.Json;
+using System.Text.Json;
+using Acme.BookStore.SharedServices;
 
 namespace Acme.BookStore;
 
@@ -141,29 +144,10 @@ public class BookStoreHttpApiHostModule : AbpModule
     {
         context.Services.AddSingleton<IDistributedLockProvider>(sp =>
         {
-            string connectionString = GetSecretAsync(configuration).Result;
+            string connectionString = new AwsSecretsManagerService().GetSecretAsync(configuration).Result;
             return new PostgresDistributedSynchronizationProvider(connectionString);
         });
-    }
-
-    private async Task<string> GetSecretAsync(IConfiguration configuration)
-    {
-        var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
-        if (!string.IsNullOrEmpty(environment) && environment.Equals("Local", StringComparison.InvariantCultureIgnoreCase))
-        {
-            return configuration.GetConnectionString("Default");
-        }
-        string secretName = "Database-Secret";
-        string region = "us-east-1";
-        IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
-        GetSecretValueRequest request = new GetSecretValueRequest
-        {
-            SecretId = secretName,
-            VersionStage = "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified.
-        };
-        GetSecretValueResponse response = await client.GetSecretValueAsync(request);
-        return response.SecretString;
-    }
+    }    
 
     private void ConfigureCors(ServiceConfigurationContext context, IConfiguration configuration)
     {
