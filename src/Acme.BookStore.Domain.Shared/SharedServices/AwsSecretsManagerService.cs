@@ -14,8 +14,11 @@ namespace Acme.BookStore.SharedServices
         public async Task<string> GetSecretAsync(IConfiguration configuration)
         {
             var environment = Environment.GetEnvironmentVariable("RUNNING_ENVIRONMENT");
+            Console.WriteLine($"Environment: {environment}");
             if (!string.IsNullOrEmpty(environment) && environment.Equals("Local", StringComparison.InvariantCultureIgnoreCase))
             {
+                Console.WriteLine("Local environment detected, using local connection string");
+                Console.WriteLine(configuration.GetConnectionString("Default"));
                 return configuration.GetConnectionString("Default") ?? "";
             }
             string secretName = "Database-Secret";
@@ -29,7 +32,7 @@ namespace Acme.BookStore.SharedServices
             GetSecretValueResponse response = await client.GetSecretValueAsync(request);
             var secretString = response.SecretString;
             var secrets = JsonSerializer.Deserialize<DatabaseSecrets>(secretString!);
-            await Console.Out.WriteLineAsync(secretString);
+            await Console.Out.WriteLineAsync($"Secrets: {secretString}");
             await Console.Out.WriteLineAsync(secrets!.GetConnectionString());
             return secrets!.GetConnectionString();
         }
