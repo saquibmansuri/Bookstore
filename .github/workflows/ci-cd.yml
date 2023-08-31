@@ -41,52 +41,7 @@ jobs:
         dockerfile: Dockerfile
 
 
-    - name: Set up Docker for httpapi.Dockerfile
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: httpapi.Dockerfile
-
-    - name: Set up Docker for httpapi.Dockerfile
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: httpapi.Dockerfile
-
-    - name: Set up Docker for Dockerfile4
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: Dockerfile4
-
-    - name: Set up Docker for httpapi
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: Dockerfile
-
-    - name: Set up Docker for httpapi
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: Dockerfile
-
-
-    - name: Set up Docker for httpapi.Dockerfile
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: httpapi.Dockerfile
-
-    - name: Set up Docker for httpapi.Dockerfile
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: httpapi.Dockerfile
-
-    - name: Set up Docker for Dockerfile4
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: Dockerfile4
-
-    - name: Set up Docker for httpapi
-      uses: docker/setup-buildx-action@v1
-      with:
-        dockerfile: Dockerfile
-
+    
     #This step builds a Docker image with the tag bookstore-app.
 
     - name: Build Docker image - Web
@@ -102,35 +57,7 @@ jobs:
       run: docker build -t bookstore-authserver --target auth -f Dockerfile .
 
 
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f auth.Dockerfile .
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f auth.Dockerfile .
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f Dockerfile4 .
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver --target auth -f Dockerfile .
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver --target auth -f Dockerfile .
-
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f auth.Dockerfile .
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f auth.Dockerfile .
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f Dockerfile4 .
-
-    - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver --target auth -f Dockerfile .
-
-
+    
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
