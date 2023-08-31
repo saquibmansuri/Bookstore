@@ -20,7 +20,7 @@ namespace Acme.BookStore.SharedServices
             }
             string secretName = "Database-Secret";
             string region = "us-east-1";
-            IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
+            using IAmazonSecretsManager client = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
             GetSecretValueRequest request = new GetSecretValueRequest
             {
                 SecretId = secretName,
@@ -29,6 +29,8 @@ namespace Acme.BookStore.SharedServices
             GetSecretValueResponse response = await client.GetSecretValueAsync(request);
             var secretString = response.SecretString;
             var secrets = JsonSerializer.Deserialize<DatabaseSecrets>(secretString!);
+            await Console.Out.WriteLineAsync(secretString);
+            await Console.Out.WriteLineAsync(secrets!.GetConnectionString());
             return secrets!.GetConnectionString();
         }
     }
