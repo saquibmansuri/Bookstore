@@ -20,39 +20,39 @@ jobs:
     
          
     #This step sets up Docker for use in your workflow and specifies the path to your Dockerfile  
-    - name: Set up Docker for migrator.Dockerfile
+    - name: Set up Docker for migrator
       uses: docker/setup-buildx-action@v1
       with:
-        dockerfile: migrator.Dockerfile
+        dockerfile: Dockerfile
 
-    - name: Set up Docker for web.Dockerfile
+    - name: Set up Docker for web
       uses: docker/setup-buildx-action@v1
       with:
-        dockerfile: web.Dockerfile
+        dockerfile: Dockerfile
 
-    - name: Set up Docker for auth.Dockerfile
+    - name: Set up Docker for auth
       uses: docker/setup-buildx-action@v1
       with:
-        dockerfile: auth.Dockerfile
+        dockerfile: Dockerfile
 
-    - name: Set up Docker for httpapi.Dockerfile
+    - name: Set up Docker for httpapi
       uses: docker/setup-buildx-action@v1
       with:
-        dockerfile: httpapi.Dockerfile
+        dockerfile: Dockerfile
 
     #This step builds a Docker image with the tag bookstore-app.
 
     - name: Build Docker image - Web
-      run: docker build -t bookstore-web -f web.Dockerfile .
+      run: docker build -t bookstore-web --target web -f Dockerfile .
 
     - name: Build Docker image - DbMigrator
-      run: docker build -t bookstore-db-migrator -f migrator.Dockerfile .
+      run: docker build -t bookstore-db-migrator --target migrator -f Dockerfile .
 
     - name: Build Docker image - HttpApi.Host
-      run: docker build -t bookstore-http-api-host -f httpapi.Dockerfile .
+      run: docker build -t bookstore-http-api-host --target host -f Dockerfile .
 
     - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f auth.Dockerfile .
+      run: docker build -t bookstore-authserver --target auth -f Dockerfile .
 
 
     - name: Configure AWS credentials
