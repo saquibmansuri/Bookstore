@@ -17,6 +17,7 @@ namespace Acme.BookStore.EntityFrameworkCore;
  * (like Add-Migration and Update-Database commands) */
 public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDbContext>
 {
+
     public BookStoreDbContext CreateDbContext(string[] args)
     {
         // https://www.npgsql.org/efcore/release-notes/6.0.html#opting-out-of-the-new-timestamp-mapping-logic
@@ -32,7 +33,7 @@ public class BookStoreDbContextFactory : IDesignTimeDbContextFactory<BookStoreDb
 #endif
 
         var builder = new DbContextOptionsBuilder<BookStoreDbContext>()
-            .UseNpgsql();
+            .UseNpgsql(connectionString);
 
         return new BookStoreDbContext(builder.Options);
     }
