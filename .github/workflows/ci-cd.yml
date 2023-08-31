@@ -56,10 +56,10 @@ jobs:
       with:
         dockerfile: Dockerfile4
 
-    - name: Set up Docker for httpapi.Dockerfile
+    - name: Set up Docker for httpapi
       uses: docker/setup-buildx-action@v1
       with:
-        dockerfile: httpapi.Dockerfile
+        dockerfile: Dockerfile
 
     #This step builds a Docker image with the tag bookstore-app.
 
@@ -86,7 +86,7 @@ jobs:
       run: docker build -t bookstore-authserver -f Dockerfile4 .
 
     - name: Build Docker image - AuthServer
-      run: docker build -t bookstore-authserver -f auth.Dockerfile .
+      run: docker build -t bookstore-authserver --target auth -f Dockerfile .
 
 
     - name: Configure AWS credentials
